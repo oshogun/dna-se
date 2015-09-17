@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
 
-// input and output files
+// GLOBALS
 FILE *fdatabase, *fquery, *fout;
+pthread_mutex_t mutex;
 
 // MAX char table (ASCII)
 #define MAX 256
@@ -149,13 +150,26 @@ void get_next_base_string(char *base) {
 	fseek(fdatabase, prev_pos, SEEK_SET);
 }
 
+void* findQuery() {
+	char desc_dna[100], desc_query[100];
+	char *base = (char*) malloc(sizeof(char) * 1000001);
+	char *str = (char*) malloc(sizeof(char) * 1000001);
+	pthread_mutex_lock(&mutex);
+	get_next_query_descripton(desc_query);
+	get_next_query_string(str);
+
+	pthread_mutex_unlock(&mutex);
+}
 int main(int argc, char *argv[]) {
 
-	if (argc != 3) {
-		printf("Insufficient number of input files!\nUsage: %s <database file> <query file>\n\n", argv[0]);
+	if (argc != 4) {
+		printf("Insufficient number of parameters!\nUsage: %s <database file> <query file> <nthreads>\n\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
+	const int nthreads = atoi(argv[3]);
 
+	// init mutex
+	pthread_mutex_init(&mutex,NULL);
 	struct timeval start_computation, end_computation;
 	struct timeval start_total, end_total;
 	unsigned long int time_computation = 0, time_total;
@@ -209,8 +223,10 @@ int main(int argc, char *argv[]) {
 
 	closefiles();
 
+	//destroy stuff
 	free(str);
 	free(base);
+	pthread_mutex_destroy(&mutex);
 
 	gettimeofday(&end_total, NULL);
 	time_total = (end_total.tv_sec - start_total.tv_sec) * 1000000 + end_total.tv_usec - start_total.tv_usec;
